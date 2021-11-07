@@ -1,0 +1,174 @@
+import math as m 
+import numpy as np 
+import random as rand
+import matplotlib.pyplot as plt
+""""
+ny16281 - PROBLEM 3 - code
+INSTRUCTIONS
+Each problem written in own cell (ctrl+enter command to run)
+Run this cell to import libraries, define functions
+Feel free to change the input values
+"""
+def sinrandINT():#COORDINATE TRANSFORM
+    return (m.acos(1-rand.uniform(0,2)))
+def sinrandAR():#ACCEPT-REJECT
+    randomshot, output = 1, 0
+    while randomshot > m.sin(output):
+        output = rand.uniform(0,m.pi)
+        randomshot = rand.uniform(0,1)        
+    return(output)
+def timerand(Gamma, tottime):#PARTICLE DECAY TIME
+    randomshot, output = 0, 0
+    while randomshot < m.e**(-Gamma*output) or output > 19:
+        output = rand.uniform(0,tottime)
+        randomshot = rand.uniform(0,1)        
+    return(output)
+def normaldist(mean, deviation, x):
+    dist = x-mean
+    denominator = 2*m.pi*(deviation**2)
+    power = -0.5*((dist/deviation)**2)
+    return((m.e**power)/m.sqrt(denominator))
+def poissondist(Lambda,k):
+    return((Lambda**k)*(m.e**(-Lambda))/(m.factorial(k)))
+#%%
+"RANDOM VARIABLE FUNCTION TESTER"
+"INPUTS"
+testno = 10**4#number of values generated from each method	
+dim = 10**5#number of steps between (0, pi)
+"ALGORITHM"
+testno, dim = int(testno), int(dim)
+Dist = np.zeros(testno)
+Densone = np.zeros(dim)#densities of results (coordinate transform)
+Denstwo = np.zeros(dim)#densities of results (accept-reject)
+Densonet = np.zeros(dim)#difference from expectattion (CO)
+Denstwot = np.zeros(dim)#difference from expectattion (AR)
+for i in range(0,testno):
+    Testone = sinrandINT()
+    Testtwo = sinrandAR()
+    Densone[int(round((dim)*Testone/m.pi))] += 1
+    Denstwo[int(round((dim)*Testtwo/m.pi))] += 1
+    print("progress", i/testno)
+for i in range(0,dim):
+    Densonet[i] = Densone[i] - (m.cos((i+1)*m.pi/dim) - m.cos(i*m.pi/dim))*testno
+    Denstwot[i] = Denstwo[i] - (m.cos((i+1)*m.pi/dim) - m.cos(i*m.pi/dim))*testno
+plt.plot(Densone)
+plt.title('Non-Normalised Probability Density Distribution for Coordinate Transform')
+plt.ylabel('Count Number')
+plt.xlabel('Generated Value (pi*10^-5)')
+plt.show() 
+plt.plot(Densonet)
+plt.title('Distance from Expectation Value (Coordinate Transform)')
+plt.ylabel('Count Difference')
+plt.xlabel('Generated Value (pi*10^-5)')
+plt.show() 
+plt.plot(Denstwo)
+plt.title('Non-Normalised Probability Density Distribution for Accept-Reject')
+plt.ylabel('Count Number')
+plt.xlabel('Generated Value (pi*10^-5)')
+plt.show()   
+plt.plot(Denstwot)
+plt.title('Distance from Expectation Value (Accept-Reject)')
+plt.ylabel('Count Difference')
+plt.xlabel('Generated Value (pi*10^-5)')
+plt.show()  
+#%%
+"PARTICLE DECAY SCREEN RESULTS"
+"INPUTS"
+Gamma = 1/(550*(10**-6 ))#1/mean lifetime
+screendist = 20#screen distance from creation point of particles
+ParticleNo = 200#total number of shot particles
+speed = 2000#particle speed - constant
+screensize = 15 #the length of a side of the square result screen 
+"ALGORITHM"
+ParticleNo = int(ParticleNo)
+tottime = screendist/speed
+distresult = np.zeros(ParticleNo)
+timeresult = np.zeros(ParticleNo)
+SCREEN = np.zeros((int(screensize/0.1),int(screensize/0.1)))
+miss = 0
+for p in range(0,ParticleNo):
+    collisionpoint = np.zeros(2)
+    time = timerand(Gamma, tottime) #accept-reject
+    dist = time * speed
+    distresult[p] = dist
+    timeresult[p] = time
+    decaytheta = rand.uniform(-m.pi,m.pi)
+    if abs(decaytheta) <= m.pi/2: #rejects return-fire
+        decayphi = rand.uniform(-m.pi/2,m.pi/2)
+        collisionpoint[0] = ((screendist-dist)*m.tan(decaytheta) +screensize/2)/0.1
+        if int(collisionpoint[0]) >= 0 and int(collisionpoint[0])< int(screensize/0.1): #rejects shots outside the screen x-axis 
+            collisionpoint[1] = ((screendist-dist)*m.tan(decayphi) +screensize/2)/0.3
+            if int(collisionpoint[1]) >= 0 and int(collisionpoint[1])< int(screensize/0.3): #rejects shots outside the screen y-axis 
+                SCREEN[int(collisionpoint[0]),int(3*collisionpoint[1])] += 1 #logs collision point
+                "RESOLUTION SPREAD FROM 10cm to 30cm"
+                resolutionspreadone = int(3*collisionpoint[1])+1
+                if resolutionspreadone < screensize/0.1:
+                    SCREEN[int(collisionpoint[0]),int(3*collisionpoint[1])+1] += 1
+                    resolutionspreadtwo = int(3*collisionpoint[1])+2
+                    if resolutionspreadtwo < screensize/0.1:
+                        SCREEN[int(collisionpoint[0]),int(3*collisionpoint[1])+2] += 1
+            else:
+                miss += 1
+        else:
+            miss += 1
+    else:
+        miss += 1
+    print("progress", p/ParticleNo)
+plt.imshow(SCREEN, cmap='hot', interpolation='nearest')
+plt.title('Sample Result Screen for 200 Particles')
+plt.ylabel('Cell No (top -> bottom on Screen)')
+plt.xlabel('Cell No (left-> right on Screen)')
+plt.colorbar()  
+print("miss:", miss)   
+print("misschance:", miss/ParticleNo)
+#%%
+"SIGMA CONFIDENCE FINDER"
+"INPUTS"
+sigmasteps = 10 #the range(0,1nb) broken into this many steps
+backgrounddeviation = 0.4#gaussian deviation of background
+backgroundmean = 5.7#gaussian mean of background
+intluminosity = 12#total no of particles fired
+testno = 5*10**1#total number of experiment repeats
+measuredvalue = 5#the value measured, used to find the interval
+"ALGORITHM"
+sigmasteps, intluminosity, testno = int(sigmasteps), int(intluminosity), int(testno)
+grossconfidence = np.zeros(sigmasteps)#records no of "5"s
+totalevents = 0
+for s in range(0,sigmasteps):
+    result = 0
+    sigma = s/sigmasteps
+    Lambda = intluminosity*sigma
+    for t in range(0,testno):
+        print("sigma:", sigma,"test progress:", t/testno)
+        randomshot, prob = 1,0
+        while randomshot > prob:#AR method for normal distribution
+            backeventno = rand.randint(0, 10) 
+            randomshot = rand.uniform(0,1)
+            prob = normaldist(backgroundmean, backgrounddeviation, backeventno)
+        randomshot, prob = 1,0
+        if sigma != 0:
+            while randomshot > prob:#AR method for poisson distribution
+                eventno = rand.randint(0,12)
+                randomshot = rand.uniform(0,1)
+                prob = poissondist(Lambda, eventno)
+        else:
+            eventno = 0
+        eventno += backeventno
+        if eventno == measuredvalue:
+            result += 1
+    grossconfidence[s] = result
+    totalevents += result
+grossconfidence = grossconfidence / totalevents
+plt.plot(grossconfidence)
+plt.title('Relative Probability of Recording %i Events' %measuredvalue)
+plt.ylabel('Relative Probability')
+plt.xlabel('Fractional Cross-Section (% of area)')
+plt.show()
+maxima = 0
+integral = 0
+while integral < 0.95:
+    integral += grossconfidence[maxima]
+    maxima += 1
+maxima = maxima/sigmasteps
+print('Upper limit on confidence interval:', maxima)
+
